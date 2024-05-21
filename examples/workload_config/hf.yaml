@@ -1,0 +1,7 @@
+type: hf_cnn_dailymail
+dataset_config:
+  max_length: 2048
+  min_length: 1
+  path_or_name: cnn_dailymail:3.0.0
+  format: json
+  split: train

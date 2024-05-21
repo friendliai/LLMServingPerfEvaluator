@@ -1,0 +1,10 @@
+aiohttp[speedups]
+requests
+numpy
+pandas
+uvloop
+transformers
+datasets
+prometheus_client
+prometheus_summary
+pydantic

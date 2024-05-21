@@ -1,0 +1,17 @@
+type: dummy
+dataset_config:
+  vocab_size: 128000
+  system_prompt_config:
+  - name: "1"
+    size: 10
+  dataset:
+  - input:
+    - type: uniform
+      min: 100
+      max: 150
+    output:
+    - type: uniform
+      min: 100
+      max: 300
+    system_prompt:
+    - name: "1"

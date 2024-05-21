@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 1s
+  scrape_timeout: 1s
+
+scrape_configs:
+  - job_name: prometheus_single_engine
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /metric
+    static_configs:
+      - targets:
+          - exp-exposer:8800
+  - job_name: prometheus_several_engines
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /metric
+    static_configs:
+      - targets:
+          - friendli-exp-exposer:8801
+          - vllm-exp-exposer:8803

@@ -1,0 +1,3 @@
+ # VLLM use `--served-model-name` option, `name` field must be the same as the `--served-model-name` option.
+stream: True
+name: model
