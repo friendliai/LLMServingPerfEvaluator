@@ -1,0 +1,30 @@
+# Experiment Environment Variables
+HF_MODEL_NAME=meta-llama/Meta-Llama-3-8B-Instruct # The model repo id of the Hugging Face model
+REQUEST_RATES=1,3,5,7 # The average number of requests per second
+DURATION=300 # The duration of the experiment in seconds
+TIMEOUT=450 # The timeout of the experiment in seconds
+CONFIG_DIR=./config # The directory path to the configuration files: workload_config.yaml, request_config.yaml
+RESULT_DIR=./result # The directory path to save the end-to-end metrics
+
+# Experiment Environment Variables for the Hugging Face model
+# HF_HUB_CACHE={HF_CACHE_DIR}
+# HF_TOKEN={HF_API_TOKEN}
+
+# user id by `id -u` in your host machine.
+UID={UID}
+
+# Friendli Engine Environment Variables
+FRIENDLI_CUDA_VISIBLE_DEVICES=0
+FRIENDLI_NUM_DEVICES=1
+FRIENDLI_CONTAINER_REPO=registry.friendli.ai/trial
+FRIENDLI_CONTAINER_TAG=latest
+FRIENDLI_CONTAINER_SECRET={FRIENDLI_CONTAINER_SECRET}
+
+# Friendli Engine Environment Variables for MoE models or quantized models.
+# POLICY_DIR={the directory path to the policy files}
+
+# vllm engine
+VLLM_CUDA_VISIBLE_DEVICES=1
+VLLM_NUM_DEVICES=1
+VLLM_REPO=vllm
+VLLM_TAG=v0.4.2

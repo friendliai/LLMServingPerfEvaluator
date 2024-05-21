@@ -1,0 +1,133 @@
+services:
+  friendli-engine:
+    image: "${FRIENDLI_CONTAINER_REPO}:${FRIENDLI_CONTAINER_TAG}"
+    container_name: friendli-engine
+    environment:
+      FRIENDLI_CONTAINER_SECRET: "${FRIENDLI_CONTAINER_SECRET}"
+      NVIDIA_VISIBLE_DEVICES: "${FRIENDLI_CUDA_VISIBLE_DEVICES}"
+      NUM_DEVICES: "${FRIENDLI_NUM_DEVICES}"
+      HF_HUB_CACHE: /model
+    hostname: engine
+    ports:
+      - 9000:9000
+      - 9905:9905
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - ${HF_HUB_CACHE}:/model
+      - ${POLICY_DIR:-/dev/null}:/policy
+    command: >
+      --hf-model-name ${HF_MODEL_NAME}
+      --web-server-port 9000
+      --metrics-port 9905
+      --num-devices ${FRIENDLI_NUM_DEVICES}
+      --tokenizer-add-special-tokens true
+      --algo-policy-dir /policy
+    networks:
+      - promnet
+
+
+  friendli-exp-exposer:
+    image: friendliai/llm-serving-perf-evaluator:latest
+    container_name: friendli-exp-exposer
+    hostname: friendli-exp-exposer
+    ports:
+      - 8801:8801
+    volumes:
+      - ${HF_HUB_CACHE}:/model
+      - ${RESULT_DIR}:/home/exp/result
+      - ${CONFIG_DIR}:/home/exp/config
+    environment:
+      HF_MODEL_NAME: ${HF_MODEL_NAME}
+      HF_HUB_CACHE: /model
+    command: >
+      --engine friendli
+      --model-name ${HF_MODEL_NAME}
+      --port 9000
+      --request-rate ${REQUEST_RATES}
+      --request-config-path ./config/request_config/friendli.yaml
+      --workload-config-path ./config/workload_config/dummy.yaml
+      --use-token
+      --verbose
+      --output-dir ./result
+      --host engine
+      --metrics-host friendli-exp-exposer
+      --duration ${DURATION}
+      --timeout ${TIMEOUT}
+      --metrics-port 8801
+    networks:
+      - promnet
+
+
+  init_prometheus:
+    image: prom/prometheus:v2.44.0
+    user: root
+    environment:
+      - UID=${UID}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        chown -R ${UID}:${UID} /prometheus
+    volumes:
+      - ./prometheus/volume:/prometheus
+
+  prometheus:
+    image: prom/prometheus:v2.44.0
+    container_name: prometheus
+    hostname: prometheus
+    environment:
+      - UID=${UID}
+    user: ${UID}:${UID}
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/config:/etc/prometheus
+      - ./prometheus/volume:/prometheus
+    command:
+      - --web.enable-lifecycle
+      - --web.enable-admin-api
+      - --config.file=/etc/prometheus/prometheus.yml
+    depends_on:
+      - init_prometheus
+      - friendli-exp-exposer
+    networks:
+      - promnet
+
+  init_grafana:
+    image: grafana/grafana:latest
+    user: root
+    environment:
+      - UID=${UID}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        chown -R ${UID}:${UID} /var/lib/grafana
+    volumes:
+      - ./grafana/volume:/var/lib/grafana
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    hostname: grafana
+    environment:
+      - UID=${UID}
+    user: ${UID}:${UID}
+    ports:
+      - 3000:3000
+    volumes:
+      - ./grafana/volume:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - promnet
+
+networks:
+  promnet:
+    driver: bridge
