@@ -233,7 +233,7 @@ Additionally, there are also `.{engine}_env` files for the different environment
 > [!TIP]
 > For comparing the performance of the different engines, you can use `examples/docker_compose/compare-docker-compose.yml` file with `.compare_env` file.
 > With `grafana/compare_engines_dashboard.json`, you can monitor the performance of the engines in the same dashboard.
-> If you want to use it, please replace `grafana/provisioning/dashboards/single_engines_dashboard.json` with `grafana/compare_engines_dashboard.json`.
+> If you want to compare the performance of Friendli Engine and vLLM, please refer to our [blog post](https://friendli.ai/blog/llm-serving-perf-evaluator/)!
 
 If you want to test other engines, you can add another `EngineClient` class in `src/engine_client` and write your own docker-compose file.
 
