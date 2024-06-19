@@ -8,3 +8,7 @@ datasets
 prometheus_client
 prometheus_summary
 pydantic
+grpcio
+grpcio-tools
+grpcio-health-checking
+friendli-client >= 1.4.1

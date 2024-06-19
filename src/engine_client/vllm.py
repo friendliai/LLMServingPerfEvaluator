@@ -1,14 +1,22 @@
+# Copyright (c) 2024-present, FriendliAI Inc. All rights reserved.
+
+# pylint: disable=duplicate-code
+
+"""VLLM engine client."""
+
 import json
+from typing import Any, Dict
 
-from typing import Dict, Any
-
-from engine_client.base import EngineClient, RequestConfig, CompletionResult
 from workload.base import RequestData
 
+from engine_client.base import CompletionResult, EngineClient, RequestConfig
 
-class VllmRequestConfig(RequestConfig):
+
+class VllmRequestConfig(RequestConfig):  # pylint: disable=too-few-public-methods
     """Request config for the Vllm Engine."""
+
     name: str
+
 
 class VllmClient(EngineClient):
     """Client for the Vllm Engine."""
@@ -21,7 +29,15 @@ class VllmClient(EngineClient):
     def health_url(self) -> str:
         return f"{self.base_uri}/v1/models"
 
-    def get_completion_result(self, start, first_token_end_time, end, prompt_length, response_length, response_text) -> CompletionResult:
+    def get_completion_result(  # pylint: disable=too-many-arguments
+        self,
+        start,
+        first_token_end_time,
+        end,
+        prompt_length,
+        response_length,
+        response_text,
+    ) -> CompletionResult:
         if self.request_config.stream:
             response_length = 1  # Add first token
             for line in response_text.split("\n"):  # SSE is a Line-based protocol
@@ -43,7 +59,7 @@ class VllmClient(EngineClient):
             response_length=response_length,
         )
 
-    def build_request(self, data: RequestData) -> Dict[str, Any]:
+    def build_http_request(self, data: RequestData) -> Dict[str, Any]:
         assert isinstance(self.request_config, VllmRequestConfig)
         request_body = {
             "prompt": data.prompt_tokens if self.use_token else data.prompt,

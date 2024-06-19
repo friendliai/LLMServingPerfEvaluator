@@ -1,15 +1,20 @@
-import os
+# Copyright (c) 2024-present, FriendliAI Inc. All rights reserved.
 
+"""Huggingface dataset workload."""
+
+import os
 from abc import abstractmethod
-from typing import List, cast, Iterator, Tuple
-from datasets import load_dataset, Dataset
+from typing import Iterator, List, Tuple, cast
+
+from datasets import Dataset, load_dataset
+from schemas import HFDatasetConfig
 from transformers import PreTrainedTokenizer
 
-from workload.base import RequestDataset, RequestData
-from schemas import HFDatasetConfig, WorkloadConfig
+from workload.base import RequestData, RequestDataset
 
 
 def safe_load_dataset(config: HFDatasetConfig) -> Dataset:
+    """Load dataset."""
     data_path = config.path_or_name
     data_split = config.split
 
@@ -26,9 +31,7 @@ def safe_load_dataset(config: HFDatasetConfig) -> Dataset:
                 dataset = load_dataset(data_path, split=data_split)
             elif len(data_name_parts) == 2:
                 data_name, subset_name = data_name_parts
-                dataset = load_dataset(
-                    data_name, subset_name, split=data_split
-                )
+                dataset = load_dataset(data_name, subset_name, split=data_split)
             else:
                 raise RuntimeError(
                     "Dataset name is in invalid format. "
@@ -38,9 +41,7 @@ def safe_load_dataset(config: HFDatasetConfig) -> Dataset:
         raise RuntimeError(f"load_dataset failed. {str(err)}") from err
 
     if not isinstance(dataset, Dataset):
-        raise RuntimeError(
-            "This dataset format is not supported."
-        )
+        raise RuntimeError("This dataset format is not supported.")
 
     return dataset
 
@@ -51,7 +52,6 @@ class HfRequestDataset(RequestDataset):
     @abstractmethod
     def iterate_dataset(self, dataset: Dataset) -> Iterator[Tuple[str, str]]:
         """Iterate dataset."""
-        pass
 
     @property
     def warmup_size(self) -> int:
@@ -70,19 +70,24 @@ class HfRequestDataset(RequestDataset):
             seq_len = len(prompt_token) + len(response_token)
             if seq_len > config.max_length or seq_len < config.min_length:
                 continue
-            dataset.append(RequestData(
-                prompt=prompt,
-                prompt_tokens=prompt_token,
-                response=response,
-                response_tokens=response_token,
-            ))
+            dataset.append(
+                RequestData(
+                    prompt=prompt,
+                    prompt_tokens=prompt_token,
+                    response=response,
+                    response_tokens=response_token,
+                )
+            )
             if len(dataset) >= self.workload_config.dataset_size:
                 break
 
         if len(dataset) < self.workload_config.dataset_size:
-            raise RuntimeError("Processed dataset is smaller than requested dataset size.")
+            raise RuntimeError(
+                "Processed dataset is smaller than requested dataset size."
+            )
 
         return dataset
+
 
 ### Custom RequestDataset for CNN_DailyMail
 class CNNDailyMailRequestDataset(HfRequestDataset):
@@ -93,6 +98,7 @@ class CNNDailyMailRequestDataset(HfRequestDataset):
         for data in dataset:
             yield data["article"], data["highlights"]
 
+
 ### Custom RequestDataset for Dolly
 class DollyRequestDataset(HfRequestDataset):
     """Dolly request dataset."""
@@ -102,6 +108,7 @@ class DollyRequestDataset(HfRequestDataset):
         for data in dataset:
             yield data["instruction"], data["response"]
 
+
 ### Custom RequestDataset for Alpaca
 class AlpacaRequestDataset(HfRequestDataset):
     """Alpaca request dataset."""
@@ -109,7 +116,12 @@ class AlpacaRequestDataset(HfRequestDataset):
     def iterate_dataset(self, dataset: Dataset) -> Iterator[Tuple[str, str]]:
         """Iterate dataset."""
         for data in dataset:
-            yield data["instruction"] + " " + data["input"] if data["input"] else data["instruction"], data["output"]
+            yield (
+                data["instruction"] + " " + data["input"]
+                if data["input"]
+                else data["instruction"]
+            ), data["output"]
+
 
 ### Custom RequestDataset for ShareGPT
 class ShareGPTRequestDataset(HfRequestDataset):
@@ -119,4 +131,6 @@ class ShareGPTRequestDataset(HfRequestDataset):
         """Iterate dataset."""
         for data in dataset:
             if len(data["conversations"]) >= 2:
-                yield data["conversations"][0]["value"], data["conversations"][1]["value"]
+                yield data["conversations"][0]["value"], data["conversations"][1][
+                    "value"
+                ]

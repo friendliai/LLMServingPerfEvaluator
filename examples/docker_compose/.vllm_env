@@ -18,5 +18,5 @@ VLLM_CUDA_VISIBLE_DEVICES=0
 VLLM_NUM_DEVICES=1
 
 # vllm engine
-VLLM_REPO=vllm
+VLLM_REPO=vllm/vllm-openai
 VLLM_TAG=v0.4.2

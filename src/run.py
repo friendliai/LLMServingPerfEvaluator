@@ -1,4 +1,4 @@
-# Copyright (c) 2022-present, FriendliAI Inc. All rights reserved.
+# Copyright (c) 2024-present, FriendliAI Inc. All rights reserved.
 
 # pylint: disable=too-many-lines,missing-function-docstring,fixme,broad-exception-caught,too-many-locals,too-many-arguments,super-with-arguments
 
@@ -10,7 +10,6 @@ import datetime
 import os
 import random
 import time
-
 from multiprocessing import Manager, Process, Queue
 from pathlib import Path
 from typing import List, Tuple
@@ -18,12 +17,12 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import uvloop
-from transformers import AutoTokenizer  # type: ignore
 from prometheus_client import Gauge, start_http_server
 from prometheus_summary import Summary
+from transformers import AutoTokenizer  # type: ignore
 
 from engine_client import get_engine_client_factory, get_request_config
-from engine_client.base import Engine, CompletionResult, EngineClient
+from engine_client.base import ClientType, CompletionResult, Engine, EngineClient
 from workload import get_workload
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -43,6 +42,7 @@ def get_stats_from_result(
         np.percentile(result, 95),
         np.percentile(result, 99),
     )
+
 
 def export_result(
     result_path: Path,
@@ -160,55 +160,86 @@ def export_result(
         result_path, mode="a", index=False, header=not os.path.isfile(result_path)
     )
 
+
 def calculate_stats(
+    args,
     exp_queues: List[Queue],
     metrics_host: str,
     metrics_port: int,
     stream: bool,
     reqeust_rate: float,
 ):
-    TOTAL_RESPONES = Gauge(
-        "total_responses", "Total number of responses"
+    total_responses = Gauge("total_responses", "Total number of responses")
+    total_output_tokens = Gauge("total_output_tokens", "Total number of output tokens")
+    total_input_tokens = Gauge("total_input_tokens", "Total number of input tokens")
+    request_latencies = Summary(
+        "request_latencies",
+        "Latencies of requests, in microseconds",
+        max_age_seconds=args.time_window,
+        age_buckets=args.num_age_buckets,
     )
-    TOTAL_OUTPUT_TOKENS = Gauge("total_output_tokens", "Total number of output tokens")
-    TOTAL_INPUT_TOKENS = Gauge("total_input_tokens", "Total number of input tokens")
-    REQUEST_LATENCIES = Summary("request_latencies", "Latencies of requests, in microseconds", max_age_seconds=args.time_window, age_buckets=args.num_age_buckets)
-    TOKEN_LATENCY = Summary("token_latencies", "Latencies of requests per output token, in microseconds",  max_age_seconds=args.time_window, age_buckets=args.num_age_buckets)
+    token_latencies = Summary(
+        "token_latencies",
+        "Latencies of requests per output token, in microseconds",
+        max_age_seconds=args.time_window,
+        age_buckets=args.num_age_buckets,
+    )
     if stream:
-        TIME_TO_FIRST_TOKENS = Summary("time_to_first_tokens", "Time to first token",  max_age_seconds=args.time_window, age_buckets=args.num_age_buckets)
-        TIME_PER_OUT_TOKENS = Summary("time_per_output_tokens", "Time per output token",  max_age_seconds=args.time_window, age_buckets=args.num_age_buckets)
-    EXP_INFO = Gauge("experiment_info", "Request rate")
+        time_to_first_tokens = Summary(
+            "time_to_first_tokens",
+            "Time to first token",
+            max_age_seconds=args.time_window,
+            age_buckets=args.num_age_buckets,
+        )
+        time_per_output_tokens = Summary(
+            "time_per_output_tokens",
+            "Time per output token",
+            max_age_seconds=args.time_window,
+            age_buckets=args.num_age_buckets,
+        )
+    exp_info = Gauge("experiment_info", "Request rate")
 
     start_http_server(port=metrics_port, addr=metrics_host)
-    EXP_INFO.set(reqeust_rate)
+    exp_info.set(reqeust_rate)
     while True:
         for queue in exp_queues:
             queue.put(None)
         for queue in exp_queues:
             for result in iter(queue.get, None):
-                TOTAL_RESPONES.inc()
-                TOTAL_OUTPUT_TOKENS.inc(result.response_length)
-                TOTAL_INPUT_TOKENS.inc(result.prompt_length)
-                REQUEST_LATENCIES.observe(result.end_time - result.start_time)
-                TOKEN_LATENCY.observe((result.end_time - result.start_time) * 1000 / result.response_length)
+                total_responses.inc()
+                total_output_tokens.inc(result.response_length)
+                total_input_tokens.inc(result.prompt_length)
+                request_latencies.observe(result.end_time - result.start_time)
+                token_latencies.observe(
+                    (result.end_time - result.start_time)
+                    * 1000
+                    / result.response_length
+                )
                 if stream:
-                    TIME_PER_OUT_TOKENS.observe((result.end_time - result.first_token_end_time) * 1000 / (result.response_length - 1))
-                    TIME_TO_FIRST_TOKENS.observe((result.first_token_end_time - result.start_time) * 1000)
+                    time_per_output_tokens.observe(
+                        (result.end_time - result.first_token_end_time)
+                        * 1000
+                        / (result.response_length - 1)
+                    )
+                    time_to_first_tokens.observe(
+                        (result.first_token_end_time - result.start_time) * 1000
+                    )
+
 
 def main(args):  # pylint: disable=too-many-branches,too-many-statements
     random.seed(args.seed)
     np.random.seed(args.seed)
 
     args.output_dir.mkdir(exist_ok=True, parents=True)
-    output_prefix: str = (
-        f"{args.engine}_{args.model_name.split('/')[-1]}"
-    )
+    output_prefix: str = f"{args.engine}_{args.model_name.split('/')[-1]}"
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     request_rate_list = sorted([float(r) for r in args.request_rate.split(",")])
     for request_rate in request_rate_list:
         request_config = get_request_config(args.engine, args.request_config_path)
-        workload = get_workload(args.workload_config_path, args.duration * request_rate, tokenizer)
+        workload = get_workload(
+            args.workload_config_path, args.duration * request_rate, tokenizer
+        )
         engine_client_factory = get_engine_client_factory(args.engine)
         engine_clients: List[EngineClient] = [
             engine_client_factory(
@@ -221,6 +252,7 @@ def main(args):  # pylint: disable=too-many-branches,too-many-statements
                 tokenizer,
                 workload.dataset,
                 request_config,
+                args.client_type,
             )
             for pid in range(args.num_proc)
         ]
@@ -246,7 +278,14 @@ def main(args):  # pylint: disable=too-many-branches,too-many-statements
             try:
                 writer_process = Process(
                     target=calculate_stats,
-                    args=(exp_queues, args.metrics_host, args.metrics_port, request_config.stream, request_rate),
+                    args=(
+                        args,
+                        exp_queues,
+                        args.metrics_host,
+                        args.metrics_port,
+                        request_config.stream,
+                        request_rate,
+                    ),
                 )
                 exp_processes = [
                     Process(
@@ -277,13 +316,19 @@ def main(args):  # pylint: disable=too-many-branches,too-many-statements
 
         csv_path = args.output_dir / f"{output_prefix}.csv"
         export_result(
-            csv_path, results, request_rate, end - start, request_config.stream, args.verbose
+            csv_path,
+            results,
+            request_rate,
+            end - start,
+            request_config.stream,
+            args.verbose,
         )
         print(f"Finished exp for request rate({request_rate})")
 
         if (end - start) > args.timeout:
             print(f"Finish exp due to timeout({args.timeout}s)")
             break
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -292,6 +337,12 @@ if __name__ == "__main__":
         type=Engine,
         default=Engine.FRIENDLI,
         choices=[Engine.FRIENDLI, Engine.VLLM],
+    )
+    parser.add_argument(
+        "--client-type",
+        type=ClientType,
+        default=ClientType.HTTP,
+        choices=[ClientType.HTTP, ClientType.GRPC],
     )
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int)
@@ -304,20 +355,21 @@ if __name__ == "__main__":
         "--model-name",
         type=str,
         required=True,
-        help="Name or path of the tokenizer in huggingface. For vllm, model name used to build request body"
-            "(e.g., meta-llama/Llama-2-7b-chat-hf)"
+        help="Name or path of the tokenizer in huggingface. "
+        "For vllm, model name used to build request body"
+        "(e.g., meta-llama/Llama-2-7b-chat-hf)",
     )
     parser.add_argument(
         "--time-window",
         type=int,
         default=10,
-        help="Time window for calculating quantile of metrics in seconds."
+        help="Time window for calculating quantile of metrics in seconds.",
     )
     parser.add_argument(
         "--num-age-buckets",
         type=int,
         default=2,
-        help="Time window for calculating quantile of metrics in seconds."
+        help="Time window for calculating quantile of metrics in seconds.",
     )
     parser.add_argument(
         "--duration",
@@ -370,5 +422,4 @@ if __name__ == "__main__":
         "--output-dir", type=Path, required=True, help="Directory to save results"
     )
 
-    args = parser.parse_args()
-    main(args)
+    main(parser.parse_args())

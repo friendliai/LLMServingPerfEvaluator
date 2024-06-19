@@ -121,6 +121,8 @@ DURATION=300 # The duration of the experiment in seconds
 TIMEOUT=450 # The timeout of the experiment in seconds
 CONFIG_DIR=./config # The directory path to the configuration files: workload_config.yaml, request_config.yaml
 RESULT_DIR=./result # The directory path to save the end-to-end metrics
+CLIENT_TYPE=http  # Use http or grpc. Only friendli engine supports grpc client.
+GRPC_MODE=false  # Use true for grpc, false for http. Only friendli engine supports grpc mode.
 
 # Experiment Environment Variables for the Hugging Face model
 # HF_HUB_CACHE={HF_CACHE_DIR}

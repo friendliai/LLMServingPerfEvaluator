@@ -1,12 +1,17 @@
-import random
+# Copyright (c) 2024-present, FriendliAI Inc. All rights reserved.
 
+"""Dummy workload."""
+
+import random
 from abc import ABC, abstractmethod
-from typing import List, Dict, cast, Optional
+from typing import Dict, List, Optional, cast
+
+from enums import Distribution
+from schemas import DummyDatasetConfig
 from transformers import PreTrainedTokenizer
 
 from workload.base import RequestData, RequestDataset
-from schemas import DummyDatasetConfig
-from enums import Distribution
+
 
 class DummySystemPromptSampler:
     """Dummy systemprompt sampler class."""
@@ -98,10 +103,11 @@ class DummyDatasetUniformSampler(DummyDatasetBaseSampler):
             f"min: {self.min}, max: {self.max}, weight: {self.weight})"
         )
 
+
 class DummyDatasetNormalSampler(DummyDatasetBaseSampler):
     """Dummy dataset normal distribution sampler."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self, minimum: int, maximum: int, mean: float, std: float, weight: int = 1
     ):
         """Initialize DummyDatasetNormalSampler."""
@@ -128,7 +134,7 @@ class DummyDatasetNormalSampler(DummyDatasetBaseSampler):
 class DummyDatasetSamplerMixture:
     """Dummy dataset sampler mixture class."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         input_samplers: List[DummyDatasetBaseSampler],
         output_samplers: List[DummyDatasetBaseSampler],
@@ -188,17 +194,18 @@ class DummyDatasetSamplerMixture:
 
 
 def get_input_output_len_with_system_prompt(
-        sampler_mixture_list: List[DummyDatasetSamplerMixture],
-    ):
-        """Get input output length with system prompt."""
-        sampler_mixture = random.choices(
-            sampler_mixture_list, [s.weight for s in sampler_mixture_list]
-        )[0]
-        return (
-            sampler_mixture.get_input_len(),
-            sampler_mixture.get_output_len(),
-            sampler_mixture.get_system_prompt(),
-        )
+    sampler_mixture_list: List[DummyDatasetSamplerMixture],
+):
+    """Get input output length with system prompt."""
+    sampler_mixture = random.choices(
+        sampler_mixture_list, [s.weight for s in sampler_mixture_list]
+    )[0]
+    return (
+        sampler_mixture.get_input_len(),
+        sampler_mixture.get_output_len(),
+        sampler_mixture.get_system_prompt(),
+    )
+
 
 def get_system_prompt_sampler(
     config: Dict, vocab_size: int
@@ -215,6 +222,7 @@ def get_system_prompt_sampler_mixture(
     return DummySystemPromptSamplerMixture(
         system_prompt_samplers, input_system_prompt_distribution
     )
+
 
 def get_dataset_sampler(config: Dict) -> DummyDatasetBaseSampler:
     """Get dataset sampler."""
@@ -264,13 +272,18 @@ def get_dataset_sampler_mixture(
         weight,
     )
 
+
 class DummyRequestDataset(RequestDataset):
     """Dummy request dataset."""
 
     @property
     def warmup_size(self) -> int:
         """Get warmup size."""
-        return len(self.system_prompt_sampler_list) if self.system_prompt_sampler_list else 0
+        return (
+            len(self.system_prompt_sampler_list)
+            if self.system_prompt_sampler_list
+            else 0
+        )
 
     @property
     def system_prompt_sampler_list(self) -> Optional[List[DummyDatasetSamplerMixture]]:
@@ -292,10 +305,11 @@ class DummyRequestDataset(RequestDataset):
         dataset_sampler_list = []
         for data in config.dataset:
             dataset_sampler_list.append(
-                get_dataset_sampler_mixture(data.model_dump(), self.system_prompt_sampler_list)
+                get_dataset_sampler_mixture(
+                    data.model_dump(), self.system_prompt_sampler_list
+                )
             )
         return dataset_sampler_list
-
 
     def process(self, tokenizer: PreTrainedTokenizer) -> List[RequestData]:
         """Process dataset to list of RequestData."""
@@ -316,13 +330,18 @@ class DummyRequestDataset(RequestDataset):
                     random.randint(0, config.vocab_size - 1) for _ in range(output_len)
                 ]
                 input_prompt = tokenizer.decode(input_tokens, add_special_tokens=False)
-                output_prompt = tokenizer.decode(output_tokens, add_special_tokens=False)
-                dataset.append(RequestData(input_prompt, input_tokens, output_prompt, output_tokens))
-
+                output_prompt = tokenizer.decode(
+                    output_tokens, add_special_tokens=False
+                )
+                dataset.append(
+                    RequestData(
+                        input_prompt, input_tokens, output_prompt, output_tokens
+                    )
+                )
 
         for _ in range(self.workload_config.dataset_size):
-            input_len, output_len, system_prompt = get_input_output_len_with_system_prompt(
-                self.dataset_sampler_list
+            input_len, output_len, system_prompt = (
+                get_input_output_len_with_system_prompt(self.dataset_sampler_list)
             )
             input_tokens = (system_prompt if system_prompt else []) + [
                 random.randint(0, config.vocab_size - 1) for _ in range(input_len)
@@ -333,7 +352,9 @@ class DummyRequestDataset(RequestDataset):
             ]
             input_prompt = tokenizer.decode(input_tokens, add_special_tokens=False)
             output_prompt = tokenizer.decode(output_tokens, add_special_tokens=False)
-            dataset.append(RequestData(input_prompt, input_tokens, output_prompt, output_tokens))
+            dataset.append(
+                RequestData(input_prompt, input_tokens, output_prompt, output_tokens)
+            )
 
         return dataset
 

@@ -6,6 +6,7 @@ services:
       FRIENDLI_CONTAINER_SECRET: "${FRIENDLI_CONTAINER_SECRET}"
       NVIDIA_VISIBLE_DEVICES: "${FRIENDLI_CUDA_VISIBLE_DEVICES}"
       NUM_DEVICES: "${FRIENDLI_NUM_DEVICES}"
+      GRPC_MODE: "${GRPC_MODE}"
       HF_HUB_CACHE: /model
     hostname: engine
     ports:
@@ -27,6 +28,7 @@ services:
       --num-devices ${FRIENDLI_NUM_DEVICES}
       --tokenizer-add-special-tokens true
       --algo-policy-dir /policy
+      --grpc ${GRPC_MODE}
     networks:
       - promnet
 
@@ -44,6 +46,7 @@ services:
     environment:
       HF_MODEL_NAME: ${HF_MODEL_NAME}
       HF_HUB_CACHE: /model
+      CLIENT_TYPE: ${CLIENT_TYPE}
     command: >
       --engine friendli
       --model-name ${HF_MODEL_NAME}
@@ -59,6 +62,7 @@ services:
       --duration ${DURATION}
       --timeout ${TIMEOUT}
       --metrics-port 8801
+      --client-type ${CLIENT_TYPE}
     networks:
       - promnet
 
