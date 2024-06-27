@@ -82,7 +82,11 @@ services:
     volumes:
       - ${HF_HUB_CACHE}:/model
     command: >
-      python3 -m vllm.entrypoints.openai.api_server --served-model-name model --model ${HF_MODEL_NAME} --load-format safetensors --port 9002 --tensor-parallel-size ${VLLM_NUM_DEVICES}
+      --served-model-name model
+      --model ${HF_MODEL_NAME}
+      --load-format safetensors
+      --port 9002
+      --tensor-parallel-size ${VLLM_NUM_DEVICES}
     networks:
       - promnet
 

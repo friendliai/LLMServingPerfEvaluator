@@ -1,6 +1,6 @@
 # Experiment Environment Variables
 HF_MODEL_NAME=meta-llama/Meta-Llama-3-8B-Instruct # The model repo id of the Hugging Face model
-REQUEST_RATES=1,3,5,7 # The average number of requests per second
+REQUEST_RATES=1,3,5,7,9,11,13 # The average number of requests per second
 DURATION=300 # The duration of the experiment in seconds
 TIMEOUT=450 # The timeout of the experiment in seconds
 CONFIG_DIR=./config # The directory path to the configuration files: workload_config.yaml, request_config.yaml
@@ -26,5 +26,5 @@ FRIENDLI_CONTAINER_SECRET={FRIENDLI_CONTAINER_SECRET}
 # vllm engine
 VLLM_CUDA_VISIBLE_DEVICES=1
 VLLM_NUM_DEVICES=1
-VLLM_REPO=vllm
+VLLM_REPO=vllm/vllm-openai
 VLLM_TAG=v0.4.2
