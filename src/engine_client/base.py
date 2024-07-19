@@ -172,18 +172,27 @@ class EngineClient(ABC):  # pylint: disable=too-many-instance-attributes
         start = time.time()
         first_token_end_time = None
         while True:
-            request_body = self.build_http_request(data)
-            async with session.post(self.request_url, json=request_body) as response:
-                if self.request_config.stream:
-                    async for _ in response.content:
-                        first_token_end_time = time.time()  # Get first token time
+            try:
+                request_body = self.build_http_request(data)
+                async with session.post(self.request_url, json=request_body) as response:
+                    if self.request_config.stream:
+                        async for _ in response.content:
+                            first_token_end_time = time.time()  # Get first token time
+                            break
+                    resp_bytes = await response.read()
+                    # This replaces invalid unicode characters with REPLACEMENT CHARACTER (U+FFFD).
+                    # It means that a generated text (not "tokens") may be invalid.
+                    response_text = resp_bytes.decode(encoding="utf-8", errors="replace")
+                    if response.status == 200:
+                        # succeed; break the loop
                         break
-                response_text = await response.text()
-                if response.status == 200:
-                    # succeed; break the loop
-                    break
-                # failed; will retry
-                print("Failed:", response.status, response_text, request_body)
+                    # failed; will retry
+                    print("Failed:", response.status, response_text, request_body)
+            except aiohttp.ClientOSError:
+                # This error usually occurs when the engine receives too high rates of requests.
+                # Our guess for the cause is because of insufficient TCP connections.
+                # So, we re-try this request as we get an error response.
+                pass
         end = time.time()
 
         prompt_length = len(data.prompt_tokens)

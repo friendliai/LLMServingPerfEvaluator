@@ -240,7 +240,7 @@ def main(args):  # pylint: disable=too-many-branches,too-many-statements
         workload = get_workload(
             args.workload_config_path, args.duration * request_rate, tokenizer
         )
-        engine_client_factory = get_engine_client_factory(args.engine)
+        engine_client_factory = get_engine_client_factory(args.engine, args.no_use_friendli_client)
         engine_clients: List[EngineClient] = [
             engine_client_factory(
                 pid,
@@ -420,6 +420,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output-dir", type=Path, required=True, help="Directory to save results"
+    )
+    parser.add_argument(
+        "--no-use-friendli-client", action="store_true",
+        default=False, help="Disable Friendli Client when \"--engine\" is \"friendli\"."
     )
 
     main(parser.parse_args())

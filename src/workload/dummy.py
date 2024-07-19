@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, cast
 
 from enums import Distribution
-from schemas import DummyDatasetConfig
+from schemas import DummyDatasetConfig, WorkloadConfig
 from transformers import PreTrainedTokenizer
 
 from workload.base import RequestData, RequestDataset
@@ -275,6 +275,10 @@ def get_dataset_sampler_mixture(
 
 class DummyRequestDataset(RequestDataset):
     """Dummy request dataset."""
+    def __init__(self, workload_config: WorkloadConfig, tokenizer: PreTrainedTokenizer):
+        self._system_prompt_sampler_list = None
+        self._dataset_sampler_list = None
+        super().__init__(workload_config, tokenizer)
 
     @property
     def warmup_size(self) -> int:
@@ -288,6 +292,9 @@ class DummyRequestDataset(RequestDataset):
     @property
     def system_prompt_sampler_list(self) -> Optional[List[DummyDatasetSamplerMixture]]:
         """Get sampler list."""
+        if self._system_prompt_sampler_list is not None:
+            return self._system_prompt_sampler_list
+
         config = cast(DummyDatasetConfig, self.workload_config.dataset_config)
         system_prompt_sampler_list = []
         if config.system_prompt_config:
@@ -295,12 +302,16 @@ class DummyRequestDataset(RequestDataset):
                 system_prompt_sampler_list.append(
                     get_system_prompt_sampler(sp_config.model_dump(), config.vocab_size)
                 )
+            self._system_prompt_sampler_list = system_prompt_sampler_list
             return system_prompt_sampler_list
         return None
 
     @property
     def dataset_sampler_list(self) -> List[DummyDatasetSamplerMixture]:
         """Get dataset sampler list."""
+        if self._dataset_sampler_list is not None:
+            return self._dataset_sampler_list
+
         config = cast(DummyDatasetConfig, self.workload_config.dataset_config)
         dataset_sampler_list = []
         for data in config.dataset:
@@ -309,6 +320,7 @@ class DummyRequestDataset(RequestDataset):
                     data.model_dump(), self.system_prompt_sampler_list
                 )
             )
+        self._dataset_sampler_list = dataset_sampler_list
         return dataset_sampler_list
 
     def process(self, tokenizer: PreTrainedTokenizer) -> List[RequestData]:

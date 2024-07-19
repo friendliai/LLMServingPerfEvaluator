@@ -22,8 +22,10 @@ REQUEST_CONFIG_REGISTRY = {
 }
 
 
-def get_engine_client_factory(model_name: Engine) -> EngineClient:
+def get_engine_client_factory(model_name: Engine, no_use_friendli_client) -> EngineClient:
     """Get engine client factory."""
+    if model_name == Engine.FRIENDLI and no_use_friendli_client:
+        return friendli.FriendliHttpBaseClient
     return MODEL_REGISTRY[model_name]
 
 
