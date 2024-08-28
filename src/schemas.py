@@ -4,9 +4,9 @@
 
 """Experiment Schemas."""
 
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel, Field
 
 from enums import Distribution, HfDatasetFormat, WorkloadDataType
 
@@ -25,7 +25,7 @@ class DummySystemPromptSamplerConfig(BaseModel):
 class DummyDatasetSamplerConfig(BaseModel):
     """Dummy dataset sampler base config."""
 
-    type: Distribution
+    type: Literal[Distribution.UNIFORM, Distribution.NORMAL]
     min: int
     max: int
     weight: int = 1
@@ -34,7 +34,7 @@ class DummyDatasetSamplerConfig(BaseModel):
 class DummyDatasetNormalSamplerConfig(DummyDatasetSamplerConfig):
     """Dummy dataset sampler config."""
 
-    type: Distribution = Distribution.NORMAL
+    type: Literal[Distribution.NORMAL]
     std: float
     mean: float
 
@@ -42,7 +42,13 @@ class DummyDatasetNormalSamplerConfig(DummyDatasetSamplerConfig):
 class DummyDatasetUniformSamplerConfig(DummyDatasetSamplerConfig):
     """Dummy dataset sampler config."""
 
-    type: Distribution = Distribution.UNIFORM
+    type: Literal[Distribution.UNIFORM]
+
+
+class DummyDatasetSamplerConfigUnion(RootModel):
+    root: Union[DummyDatasetNormalSamplerConfig,
+                DummyDatasetUniformSamplerConfig] \
+                    = Field(..., discriminator="type")
 
 
 class DummyDatasetSystemPromptSelectorConfig(BaseModel):
@@ -55,8 +61,8 @@ class DummyDatasetSystemPromptSelectorConfig(BaseModel):
 class DummyDatasetSamplerMixtureConfig(BaseModel):
     """Dummy dataset sampler mixture config."""
 
-    input: List[DummyDatasetSamplerConfig]
-    output: List[DummyDatasetSamplerConfig]
+    input: List[DummyDatasetSamplerConfigUnion]
+    output: List[DummyDatasetSamplerConfigUnion]
     system_prompt: Optional[List[DummyDatasetSystemPromptSelectorConfig]] = None
     weight: int = 1
 

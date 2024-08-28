@@ -11,4 +11,4 @@ pydantic
 grpcio
 grpcio-tools
 grpcio-health-checking
-friendli-client >= 1.4.1
+friendli-client >= 1.5.3
