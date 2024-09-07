@@ -1,5 +1,5 @@
 # LLMServingPerfEvaluator
-A tool for evaluating the performance of LLM serving engines.
+A tool for evaluating the performance of LLM inference serving engines.
 
 ## Prerequisites
 Make sure you have:
